@@ -64,18 +64,9 @@ static const CONF_PARSER module_config[] = {
  *	that must be referenced in later calls, store a handle to it
  *	in *instance otherwise put a null pointer there.
  */
-static int mod_instantiate(CONF_SECTION *conf, void *instance)
+static int mod_instantiate(UNUSED CONF_SECTION *conf, UNUSED void *instance)
 {
-	rlm_unixtime_t *inst = instance;
-
-	/*
-	 *	Do more work here
-	 */
-	if (!inst->boolean) {
-		cf_log_err_cs(conf, "Boolean is false: forcing error!");
-		return -1;
-	}
-
+//	rlm_unixtime_t *inst = instance;
 	return 0;
 }
 
