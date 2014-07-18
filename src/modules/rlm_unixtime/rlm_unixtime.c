@@ -35,20 +35,16 @@ RCSID("$Id$")
  *	be used as the instance handle.
  */
 typedef struct rlm_unixtime_t {
-	bool		boolean;
-	uint32_t	value;
-	char const	*string;
-	fr_ipaddr_t	ipaddr;
+	char const	*list;
+ 	char const	*attribute;
 } rlm_unixtime_t;
 
 /*
  *	A mapping of configuration file names to internal variables.
  */
 static const CONF_PARSER module_config[] = {
-	{ "integer", FR_CONF_OFFSET(PW_TYPE_INTEGER, rlm_unixtime_t, value), "1" },
-	{ "boolean", FR_CONF_OFFSET(PW_TYPE_BOOLEAN, rlm_unixtime_t, boolean), "no" },
-	{ "string", FR_CONF_OFFSET(PW_TYPE_STRING, rlm_unixtime_t, string), NULL },
-	{ "ipaddr", FR_CONF_OFFSET(PW_TYPE_IPV4_ADDR, rlm_unixtime_t, ipaddr), "*" },
+	{ "list", FR_CONF_OFFSET(PW_TYPE_STRING, rlm_unixtime_t, list), "request" },
+	{ "attribute", FR_CONF_OFFSET(PW_TYPE_STRING, rlm_unixtime_t, attribute), "Current-Time" },
 
 	{ NULL, -1, 0, NULL, NULL }		/* end the list */
 };
@@ -64,9 +60,18 @@ static const CONF_PARSER module_config[] = {
  *	that must be referenced in later calls, store a handle to it
  *	in *instance otherwise put a null pointer there.
  */
-static int mod_instantiate(UNUSED CONF_SECTION *conf, UNUSED void *instance)
+static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 {
-//	rlm_unixtime_t *inst = instance;
+	rlm_unixtime_t *inst = instance;
+
+        if (strcasecmp(inst->list, "request") != 0
+	    && strcasecmp(inst->list, "control") != 0
+	    && strcasecmp(inst->list, "check") != 0
+            && strcasecmp(inst->list, "reply") != 0) {
+
+		cf_log_err_cs(conf, "unrecognized list name");
+		return -1;
+        }
 	return 0;
 }
 
@@ -76,8 +81,9 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, UNUSED void *instance)
  *	from the database. The authentication code only needs to check
  *	the password, the rest is done here.
  */
-static rlm_rcode_t CC_HINT(nonnull) mod_authorize(UNUSED void *instance, UNUSED REQUEST *request)
+static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, REQUEST *request)
 {
+	rlm_unixtime_t *inst = instance; 
         char unix_time_str[11];
         time_t unix_time;
 
@@ -86,8 +92,18 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(UNUSED void *instance, UNUSED 
 	}
 
         snprintf(unix_time_str, sizeof(unix_time_str), "%ld", (long) unix_time);
-	pairmake_packet("VaTech-UNIX-Time", unix_time_str, T_OP_EQ);
 
+        if (strcasecmp(inst->list, "request") == 0) {
+	  pairmake_packet(inst->attribute, unix_time_str, T_OP_EQ);
+        }
+        else if (strcasecmp(inst->list, "control") == 0
+                 || strcasecmp(inst->list, "check") == 0) {
+	  pairmake_config(inst->attribute, unix_time_str, T_OP_EQ);
+        }
+        else if (strcasecmp(inst->list, "reply") == 0) {
+	  pairmake_reply(inst->attribute, unix_time_str, T_OP_EQ);
+        } 
+      
 	return RLM_MODULE_OK;
 }
 
